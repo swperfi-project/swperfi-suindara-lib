@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.2", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swperfi_suindara"
+authors = [{name = "Pedro Victor dos Santos Matias", email = "pvsm@icomp.ufam.edu.br"}]
+description = "A Python Library for Parsing, Prediction, and Optimization of Android Call Drop Logs"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: Apache Software License",
+]
+requires-python = ">=3.11.9"
+dynamic = ["version"]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+Homepage = "https://github.com/swperfi-project/swperfi-suindara"
+"Bug Tracker" = "https://github.com/swperfi-project/swperfi-suindara/issues"
+
+[project.optional-dependencies]
+tests = ["mypy", "pytest", "ipython"]
+
+[tool.setuptools]
+include-package-data = true
+package-dir = {"" = "src"}
+license-files = ["LICENSE"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools_scm]
+version_scheme = "post-release"

@@ -1,0 +1,11 @@
+name: swperfi-suindara
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.11.9
+  - pandas=2.1.4
+  - tqdm=4.66.5
+  - python-dateutil=2.9.0
+  - pip
+  - pip:
