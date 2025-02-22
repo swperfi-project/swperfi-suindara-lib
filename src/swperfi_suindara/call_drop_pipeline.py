@@ -68,7 +68,7 @@ class CallDropPipeline:
         return self._prediction_pipeline
 
 
-    def process_single_zip(self, zip_path: str, output_dir: str = None):
+    def process_single_zip(self, zip_path: str, auto_save: bool = True, output_dir: str = None):
         """
         Processes a single ZIP file, executes parsing, data transformation, 
         and prediction, then saves the results.
@@ -105,16 +105,18 @@ class CallDropPipeline:
                 return result
 
             # Save consolidated DataFrame (using custom save method)
-            self._data_processor.save_to_csv()
-            self.logger.info(f"Consolidated DF saved for {zip_name}")
+            if auto_save: 
+                self._data_processor.save_to_csv()
+                self.logger.info(f"Consolidated DF saved for {zip_name}")
 
             # Step 2: Run prediction pipeline
             self._prediction_pipeline = PredictionPipeline(self.model_path)
             self._prediction_pipeline.run_pipeline(self._data_processor.consolidated_df, zip_path)
           
             # Save prediction results (using custom save method)
-            self._prediction_pipeline.save_to_csv()
-            self.logger.info(f"Prediction results saved for {zip_name}")
+            if auto_save: 
+                self._prediction_pipeline.save_to_csv()
+                self.logger.info(f"Prediction results saved for {zip_name}")
 
             # Prepare the result in the requested format
             result = {
