@@ -50,7 +50,8 @@ class PredictionPipeline:
         self.total_predictions = None 
         self.correct_predictions = None
         self.accuracy  = None
-        self.predicted_df = pd.DataFrame()
+        self.full_predicted_df = pd.DataFrame()
+        self.summary_predicted_df = pd.DataFrame()
 
     def load_model(self):
         """
@@ -295,6 +296,9 @@ class PredictionPipeline:
                 self.logger.info("[PREDICTION] Correct predictions: %d", self.correct_predictions)
                 self.logger.info("[PREDICTION] Accuracy: %.4f", self.accuracy)
 
+                # Criando DataFrame resumido
+                summary_data = []
+
                 # Log results
                 for idx, pred in zip(df_prepared.index, predictions):
                     call_id = df_full.loc[idx, 'call_id'] if 'call_id' in df_full.columns else 'N/A'
@@ -303,18 +307,41 @@ class PredictionPipeline:
 
                     self.logger.info("[RESULT] call_id: %s - disc_time: %s - prediction: %.4f - IDTAG: %s",
                                     call_id, disc_time, pred, idtag)
+                    
+                for idx, pred in zip(df_prepared.index, predictions):
+                    entry = {
+                        'call_id': df_full.loc[idx, 'call_id'] if 'call_id' in df_full.columns else 'N/A',
+                        'disc_time': pd.to_datetime(df_full.loc[idx, 'disc_time']).strftime('%m-%d %H:%M:%S') if 'disc_time' in df_full.columns else 'N/A',
+                    }
+                    # Adiciona features requeridas
+                    for feature in self.required_features:
+                        entry[feature] = df_full.loc[idx, feature] if feature in df_full.columns else 'N/A'
+                    entry.update({
+                        'prediction': pred,
+                        'IDTAG_reference': df_full.loc[idx, 'IDTAG'] if 'IDTAG' in df_full.columns else 'N/A',
+                        'disconnect_cause': df_full.loc[idx, 'cause'] if 'cause' in df_full.columns else 'N/A',
+                        'correct_prediction': bool(df_full.loc[idx, 'correct_prediction'])
+                    })
+                    summary_data.append(entry)
+
+                    # Logging de cada predição
+                    self.logger.info("[RESULT] call_id: %s - disc_time: %s - prediction: %.4f - IDTAG: %s",
+                                    entry['call_id'], entry['disc_time'], pred, entry['IDTAG_reference'])
+
+                # Atributos de predição
+                self.full_predicted_df = df_full
+                self.summary_predicted_df = pd.DataFrame(summary_data)
 
                 self.logger.info("[MAIN] Prediction pipeline completed successfully.")
 
-                self.predicted_df = df_full
-                return self.predicted_df        
+                return self.full_predicted_df        
         except Exception as e: self.logger.exception("MAIN", "Unexpected error: %s", e)
 
 
 
     def save_to_csv(self, save_path: str = None):
         """
-        Saves the predicted DataFrame (`self.predicted_df`) to a CSV file inside 
+        Saves the predicted DataFrame (`self.full_predicted_df`) to a CSV file inside 
         a 'prediction_results' folder. The filename is automatically generated based on 
         the model file name.
 
@@ -324,7 +351,7 @@ class PredictionPipeline:
             The base directory where the 'prediction_results' folder will be created.
             If None, it saves in the same directory as the model file.
         """
-        if self.predicted_df.empty:
+        if self.full_predicted_df.empty:
             self.logger.warning("[SAVE_CSV] Predicted DataFrame is empty. Skipping saving.")
             return
 
@@ -342,10 +369,46 @@ class PredictionPipeline:
 
         # Salvar DataFrame
         try:
-            self.predicted_df.to_csv(output_file, index=False)
+            self.full_predicted_df.to_csv(output_file, index=False)
             self.logger.info(f"[SAVE_CSV] Predicted DataFrame saved successfully: {output_file}")
         except Exception as e:
             self.logger.error(f"[SAVE_CSV] Error saving Predicted DataFrame to CSV: {e}")
+
+    
+    def save_summary_to_csv(self, save_path: str = None):
+        """
+        Saves the predicted DataFrame (`self.summary_predicted_df`) to a CSV file inside 
+        a 'prediction_results' folder. The filename is automatically generated based on 
+        the model file name.
+
+        Parameters:
+        -----------
+        save_path : str, optional
+            The base directory where the 'prediction_results' folder will be created.
+            If None, it saves in the same directory as the model file.
+        """
+        if self.summary_predicted_df.empty:
+            self.logger.warning("[SAVE_SUMMARY_CSV] Summary Predicted DataFrame is empty. Skipping saving.")
+            return
+
+        # Se `save_path` não for fornecido, usar o diretório onde o modelo está armazenado
+        if save_path is None:
+            save_path = os.path.dirname(self.log_zip_file_path)
+
+        # Criar diretório prediction_results dentro do caminho escolhido
+        output_dir = os.path.join(save_path, "prediction_results")
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Gerar nome do arquivo baseado no modelo carregado
+        zip_name = os.path.basename(self.log_zip_file_path).replace(".zip", "")
+        output_file = os.path.join(output_dir, f"{zip_name}_summary_predictions.csv")
+
+        # Salvar DataFrame
+        try:
+            self.summary_predicted_df.to_csv(output_file, index=False)
+            self.logger.info(f"[SAVE_SUMMARY_CSV] Summary Predicted DataFrame saved successfully: {output_file}")
+        except Exception as e:
+            self.logger.error(f"[SAVE_SUMMARY_CSV] Error saving Summary Predicted DataFrame to CSV: {e}")
 
         
 

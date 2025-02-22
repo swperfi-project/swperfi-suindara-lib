@@ -53,6 +53,19 @@ class CallDropPipeline:
         self.logger = LoggerSetup.setup_logger(self.__class__.__name__)
         self.model_path = model_path
         self.summary = []  
+        self._data_processor = None  # Inicializado quando o ZIP for processado
+        self._prediction_pipeline = None
+
+    
+    @property
+    def data_processor(self):
+        """Getter para acessar o DataProcessor atual."""
+        return self._data_processor
+
+    @property
+    def prediction_pipeline(self):
+        """Getter para acessar o PredictionPipeline atual."""
+        return self._prediction_pipeline
 
 
     def process_single_zip(self, zip_path: str, output_dir: str = None):
@@ -77,8 +90,8 @@ class CallDropPipeline:
             self.logger.info(f"Processing ZIP: {zip_name}")
 
             # Step 1: Process logs and consolidate data
-            data_processor = DataProcessor(zip_path)
-            if data_processor.consolidated_df.empty:
+            self._data_processor = DataProcessor(zip_path) # Inicializa e armazena o DataProcessor
+            if self._data_processor.consolidated_df.empty:
                 self.logger.warning(f"ZIP {zip_name} generated no consolidated data.")
                 result = {
                     "ZIP": zip_name,
@@ -92,31 +105,27 @@ class CallDropPipeline:
                 return result
 
             # Save consolidated DataFrame (using custom save method)
-            data_processor.save_to_csv()
+            self._data_processor.save_to_csv()
             self.logger.info(f"Consolidated DF saved for {zip_name}")
 
             # Step 2: Run prediction pipeline
-            prediction_pipeline = PredictionPipeline(self.model_path)
-            prediction_pipeline.run_pipeline(data_processor.consolidated_df, zip_path)
-
-            # Access total_predictions, correct_predictions, and accuracy from PredictionPipeline
-            total_predictions = prediction_pipeline.total_predictions
-            correct_predictions = prediction_pipeline.correct_predictions
-            accuracy = prediction_pipeline.accuracy
-
+            self._prediction_pipeline = PredictionPipeline(self.model_path)
+            self._prediction_pipeline.run_pipeline(self._data_processor.consolidated_df, zip_path)
+          
             # Save prediction results (using custom save method)
-            prediction_pipeline.save_to_csv()
+            self._prediction_pipeline.save_to_csv()
             self.logger.info(f"Prediction results saved for {zip_name}")
 
             # Prepare the result in the requested format
             result = {
                 "ZIP": zip_name,
                 "Status": "Success",
-                "Parsed Calls": len(data_processor.consolidated_df),
-                "Predicted Calls": total_predictions,
-                "Correct Predictions": correct_predictions,
-                "Local Accuracy": accuracy
+                "Parsed Calls": len(self._data_processor.consolidated_df),
+                "Predicted Calls": self._prediction_pipeline.total_predictions,
+                "Correct Predictions": self._prediction_pipeline.correct_predictions,
+                "Local Accuracy": self._prediction_pipeline.accuracy
             }
+
             self.summary.append(result)
 
             return result
@@ -171,6 +180,8 @@ class CallDropPipeline:
 
         # Return a summary of the results for all files
         return self.summary
+    
+    
     
     def to_df(self):
         """
