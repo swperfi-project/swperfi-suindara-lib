@@ -214,7 +214,7 @@ class PredictionPipeline:
             raise ValueError("Missing required features for prediction.")
         
 
-        df_prepared = df[self.required_features].copy
+        df_prepared = df[self.required_features].copy()
 
         for col in df_prepared.columns:
             if df_prepared[col].dtype == 'object':

@@ -87,7 +87,7 @@ Once the data is parsed, you can use the `PredictionPipeline` to make prediction
 ```python
 from swperfi_suindara.prediction import PredictionPipeline
 
-...
+... # need to reuse parsed logs inside of the object from Data Processor
 
 # Path to the trained model
 model_path = 'path_to_your_trained_model/xgboost_model_Android_14.pkl'
