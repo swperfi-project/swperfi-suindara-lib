@@ -14,6 +14,10 @@ import os
 import pickle
 import pandas as pd
 import logging
+import shap
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+
 from ..utils.config import LoggerSetup
 
 
@@ -66,6 +70,7 @@ class PredictionPipeline:
             with open(self.model_path, 'rb') as file:
                 model_data = pickle.load(file)
 
+            # Carrega modelo e features
             model = model_data.get("model")
             required_features = model_data.get("feature_names")
 
@@ -73,13 +78,42 @@ class PredictionPipeline:
                 self.logger.error("[MODEL LOAD] Model file is missing 'model' or 'feature_names'.")
                 return None, None
 
+            # Atribuição de atributos
+            self.model = model
+            self.required_features = required_features
+
+            # Extração de feature importance automaticamente
+            if hasattr(self.model, 'feature_importances_') and hasattr(self.model, 'feature_names_in_'):
+                self.feature_importance_dict = dict(
+                    zip(self.model.feature_names_in_, self.model.feature_importances_)
+                )
+                self.logger.info("[MODEL LOAD] Feature importances extracted successfully with %d features.", len(self.feature_importance_dict))
+            else:
+                self.feature_importance_dict = {}
+                self.logger.warning("[MODEL LOAD] Model does not have feature importances or feature names.")
+
             self.logger.info("[MODEL LOAD] Model and features loaded successfully from '%s'.", self.model_path)
             self.logger.info("[MODEL LOAD] Required features: %s", required_features)
+
             return model, required_features
 
         except Exception as e:
             self.logger.error("[MODEL LOAD] Error loading model from '%s': %s", self.model_path, e)
             return None, None
+        
+    def get_feature_importance_dict(self):
+        """
+        Returns the preloaded feature importance dictionary.
+
+        Returns:
+        --------
+        dict
+            A dictionary of feature names and their corresponding importances.
+        """
+        self.logger.info("[FEATURE IMPORTANCE] Retrieving preloaded feature importances.")
+        return self.feature_importance_dict if hasattr(self, 'feature_importance_dict') else {}
+
+
         
     def filter_by_technology(self, data: pd.DataFrame) -> pd.DataFrame:
         """Filters rows by technology (LTE or NR)."""
@@ -242,7 +276,7 @@ class PredictionPipeline:
         try:
             predictions = list(zip(*self.model.predict_proba(df)))[1]
             self.logger.info("[PREDICTION] Prediction executed successfully.")
-            self.logger.info("[PREDICTION] Sample predictions (first 10): %s", predictions[:10])
+            self.logger.info("[PREDICTION] predictions: %s", predictions)
             return predictions
 
         except Exception as e:
@@ -411,6 +445,41 @@ class PredictionPipeline:
             self.logger.error(f"[SAVE_SUMMARY_CSV] Error saving Summary Predicted DataFrame to CSV: {e}")
 
         
+    def generate_local_shap_explanation(self, input_instance: pd.DataFrame):
+        """
+        Generates a local SHAP explanation for a specific instance and returns a ready-to-use plot.
+
+        Parameters:
+        -----------
+        input_instance : pd.DataFrame
+            A single-row DataFrame corresponding to the instance to explain.
+
+        Returns:
+        --------
+        tuple
+            (shap_values_dict, matplotlib.figure.Figure) ready for PySide6 visualization.
+        """
+        if self.model is None:
+            self.logger.error("[SHAP] Model must be loaded before generating explanations.")
+            return None, None
+
+        if input_instance.shape[0] != 1:
+            self.logger.error("[SHAP] Input must be a single instance (one row DataFrame).")
+            return None, None
+
+        # Criar o explicador SHAP
+        explainer = shap.Explainer(self.model)
+        shap_values = explainer(input_instance)
+
+        # Criar gráfico sem exibir diretamente
+        fig, ax = plt.subplots(figsize=(10, 6))
+        shap.waterfall_plot(shap_values[0], show=False, ax=ax)  # Gera o gráfico sem exibir
+
+        # Preparar o retorno dos valores SHAP
+        shap_values_dict = dict(zip(input_instance.columns, shap_values.values[0]))
+
+        # Retorna o gráfico pronto para PySide6 e os valores SHAP
+        return shap_values_dict, fig
 
         
        
