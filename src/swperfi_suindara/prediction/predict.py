@@ -447,7 +447,7 @@ class PredictionPipeline:
         
     def generate_local_shap_explanation(self, input_instance):
         """
-        Gera uma explicação local SHAP para uma instância de entrada.
+        Gera uma explicação local SHAP para uma instância de entrada com customização nativa.
 
         Parameters:
         -----------
@@ -459,17 +459,35 @@ class PredictionPipeline:
         tuple
             Um dicionário com os valores SHAP e uma figura matplotlib pronta para ser renderizada no PySide.
         """
-        # Instancia o SHAP Explainer com o modelo treinado
+        # Instanciar o SHAP Explainer com o modelo treinado
         explainer = shap.Explainer(self.model)
-        
-        # Calcula os valores SHAP para a instância
+
+        # Calcular os valores SHAP para a instância
         shap_values = explainer(input_instance)
 
-        # Gera o gráfico usando Matplotlib
+        # Definir tamanho do gráfico com base no número de features
+        num_features = len(input_instance.columns)
+        fig_width = 10
+        fig_height = max(6, num_features * 0.5)  # Altura proporcional ao número de features
+
+        # Configuração inicial do tema escuro
+        plt.style.use('dark_background')
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+        # Gera o gráfico waterfall diretamente na nova figura
         shap.plots.waterfall(shap_values[0], show=False)
 
-        # Captura a figura ativa
-        fig = plt.gcf()
+        # Customizações visuais do gráfico
+        ax.set_facecolor('#2a2d3e')  # Fundo dos eixos
+        fig.patch.set_facecolor('#1e1e2f')  # Fundo da figura
+        ax.grid(True, linestyle='--', color='#4c5c74', alpha=0.3)  # Linhas de grade com transparência
+
+        # Títulos e labels
+        ax.set_title('Local SHAP Explanation', fontsize=14, color='#c0d6f7')
+        ax.tick_params(axis='x', colors='white')
+        ax.tick_params(axis='y', colors='white')
+
+        plt.tight_layout()  # Ajuste automático do layout
 
         # Converte os valores SHAP em dicionário
         shap_values_dict = dict(zip(input_instance.columns, shap_values.values[0]))
