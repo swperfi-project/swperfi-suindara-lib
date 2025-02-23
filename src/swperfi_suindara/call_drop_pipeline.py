@@ -54,7 +54,7 @@ class CallDropPipeline:
         self.model_path = model_path
         self.summary = []  
         self._data_processor = None  # Inicializado quando o ZIP for processado
-        self._prediction_pipeline = None
+        self._prediction_pipeline =  PredictionPipeline(self.model_path)
 
     
     @property
@@ -66,6 +66,22 @@ class CallDropPipeline:
     def prediction_pipeline(self):
         """Getter para acessar o PredictionPipeline atual."""
         return self._prediction_pipeline
+    
+    def set_model_path(self, new_model_path: str):
+        """
+        Atualiza o caminho do modelo e reinicializa a PredictionPipeline.
+
+        Parameters:
+        -----------
+        new_model_path : str
+            Novo caminho para o arquivo de modelo (pickle format).
+        """
+        if self.model_path != new_model_path:
+            self.logger.info(f"[MODEL UPDATE] Updating model path from '{self.model_path}' to '{new_model_path}'.")
+            self.model_path = new_model_path
+            self._prediction_pipeline = PredictionPipeline(self.model_path)
+            self.logger.info(f"[MODEL UPDATE] PredictionPipeline reinitialized with the new model path: '{self.model_path}'.")
+
 
 
     def process_single_zip(self, zip_path: str, auto_save: bool = True, output_dir: str = None):
@@ -110,7 +126,7 @@ class CallDropPipeline:
                 self.logger.info(f"Consolidated DF saved for {zip_name}")
 
             # Step 2: Run prediction pipeline
-            self._prediction_pipeline = PredictionPipeline(self.model_path)
+            #self._prediction_pipeline = PredictionPipeline(self.model_path)
             self._prediction_pipeline.run_pipeline(self._data_processor.consolidated_df, zip_path)
           
             # Save prediction results (using custom save method)
