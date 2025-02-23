@@ -445,40 +445,35 @@ class PredictionPipeline:
             self.logger.error(f"[SAVE_SUMMARY_CSV] Error saving Summary Predicted DataFrame to CSV: {e}")
 
         
-    def generate_local_shap_explanation(self, input_instance: pd.DataFrame):
+    def generate_local_shap_explanation(self, input_instance):
         """
-        Generates a local SHAP explanation for a specific instance and returns a ready-to-use plot.
+        Gera uma explicação local SHAP para uma instância de entrada.
 
         Parameters:
         -----------
         input_instance : pd.DataFrame
-            A single-row DataFrame corresponding to the instance to explain.
+            Uma instância (linha) para a qual a explicação SHAP será gerada.
 
         Returns:
         --------
         tuple
-            (shap_values_dict, matplotlib.figure.Figure) ready for PySide6 visualization.
+            Um dicionário com os valores SHAP e uma figura matplotlib pronta para ser renderizada no PySide.
         """
-        if self.model is None:
-            self.logger.error("[SHAP] Model must be loaded before generating explanations.")
-            return None, None
-
-        if input_instance.shape[0] != 1:
-            self.logger.error("[SHAP] Input must be a single instance (one row DataFrame).")
-            return None, None
-
-        # Criar o explicador SHAP
+        # Instancia o SHAP Explainer com o modelo treinado
         explainer = shap.Explainer(self.model)
+        
+        # Calcula os valores SHAP para a instância
         shap_values = explainer(input_instance)
 
-        # Criar gráfico sem exibir diretamente
-        fig, ax = plt.subplots(figsize=(10, 6))
-        shap.waterfall_plot(shap_values[0], show=False, ax=ax)  # Gera o gráfico sem exibir
+        # Gera o gráfico usando Matplotlib
+        shap.plots.waterfall(shap_values[0], show=False)
 
-        # Preparar o retorno dos valores SHAP
+        # Captura a figura ativa
+        fig = plt.gcf()
+
+        # Converte os valores SHAP em dicionário
         shap_values_dict = dict(zip(input_instance.columns, shap_values.values[0]))
 
-        # Retorna o gráfico pronto para PySide6 e os valores SHAP
         return shap_values_dict, fig
 
         
