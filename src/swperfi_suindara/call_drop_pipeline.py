@@ -189,16 +189,17 @@ class CallDropPipeline:
 
         self.logger.info(f"Processing {len(zip_files)} ZIP files in directory: {zip_dir}")
 
-        # Process all ZIPs with progress bar
-        with tqdm(total=len(zip_files), desc="Processing ZIPs", unit="file", dynamic_ncols=True) as pbar:
-            for zip_path in zip_files:
-                result = self.process_single_zip(zip_path, output_dir)
-                self.summary.append(result)
-                pbar.update(1)
+        self.progress = 0  # Atributo de progresso iniciado em 0
+        self.total_files = len(zip_files)  # Número total de arquivos
 
-        # Return a summary of the results for all files
+        # Processar todos os ZIPs e atualizar o progresso
+        for idx, zip_path in enumerate(zip_files, start=1):
+            result = self.process_single_zip(zip_path, output_dir)
+            self.summary.append(result)
+            self.progress = int((idx / self.total_files) * 100)  # Atualizar o progresso percentual
+
         return self.summary
-    
+        
     
     
     def to_df(self):
