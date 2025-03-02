@@ -13,6 +13,14 @@ classifiers = [
 ]
 requires-python = ">=3.11.9"
 dynamic = ["version"]
+dependencies = [
+    "pandas==2.1.4",
+    "tqdm==4.66.5",
+    "python-dateutil==2.9.0",
+    "matplotlib>=3.10.0",
+    "shap>=0.46.0"
+]
+
 
 [project.readme]
 file = "README.md"
