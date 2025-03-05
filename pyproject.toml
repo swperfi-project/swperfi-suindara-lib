@@ -28,8 +28,8 @@ file = "README.md"
 content-type = "text/markdown"
 
 [project.urls]
-Homepage = "https://github.com/swperfi-project/swperfi-suindara"
-"Bug Tracker" = "https://github.com/swperfi-project/swperfi-suindara/issues"
+Homepage = "https://github.com/swperfi-project/swperfi-suindara-lib"
+"Bug Tracker" = "https://github.com/swperfi-project/sswperfi-suindara-lib/issues"
 
 [project.optional-dependencies]
 tests = ["mypy", "pytest", "ipython"]
