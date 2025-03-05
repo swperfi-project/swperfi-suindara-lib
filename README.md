@@ -1,4 +1,4 @@
-[![](https://img.shields.io/pypi/v/swperfi-suindara?style=for-the-badge)](https://pypi.org/project/swperfi-suindara) [![](https://img.shields.io/pypi/l/swperfi-suindara?style=for-the-badge)](https://github.com/swperfi-project/swperfi-suindara/blob/main/LICENSE) [![](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/swperfi-project/swperfi-suindara-lib) [![](https://img.shields.io/badge/-Documentation-fe9c22?style=for-the-badge&link=https%3A%2F%2Fyour_documentation_url)](https://your_documentation_url)
+[![](https://img.shields.io/pypi/v/swperfi-suindara?style=for-the-badge)](https://pypi.org/project/swperfi-suindara) [![](https://img.shields.io/pypi/l/swperfi-suindara?style=for-the-badge)](https://github.com/swperfi-project/swperfi-suindara/blob/main/LICENSE) [![](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/swperfi-project/swperfi-suindara-lib) [![](https://img.shields.io/badge/-Documentation-fe9c22?style=for-the-badge&link=https%3A%2F%2Fyour_documentation_url)](https://swperfi-project.github.io/swperfi-suindara-lib/)
 
 # swperfi-suindara
 
@@ -24,14 +24,13 @@ The objective is to develop tools that enhance the prediction, mitigation, and a
 To install the library, use the following command:
 
 ```bash
-pip install swperfi-suindara
-
+pip install git+https://github.com/swperfi-project/swperfi-suindara-lib.git
 ```
 
 Alternatively, for installing from the repository:
 
 ```
-git clone https://github.com/swperfi-project/swperfi-suindara
+git clone https://github.com/swperfi-project/swperfi-suindara-lib
 cd swperfi-suindara
 pip install --upgrade pip
 pip install .
