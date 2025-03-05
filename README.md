@@ -201,8 +201,6 @@ limitations under the License.
 
 For more information about the SWPERFI project, visit the official website:
 
-[SWPERFI - Artificial Intelligence Techniques for Software Performance Analysis and Optimization](https://swperfi.icomp.ufam.edu.br)
-
-© SWPERFI - Artificial Intelligence Techniques for Software Performance Analysis and Optimization
+[© SWPERFI - Artificial Intelligence Techniques for Software Performance Analysis and Optimization](https://swperfi.icomp.ufam.edu.br)
 
 
