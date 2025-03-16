@@ -194,7 +194,7 @@ class CallDropPipeline:
 
         # Processar todos os ZIPs e atualizar o progresso
         for idx, zip_path in enumerate(zip_files, start=1):
-            result = self.process_single_zip(zip_path, output_dir)
+            result = self.process_single_zip(zip_path,True, output_dir)
             self.summary.append(result)
             self.progress = int((idx / self.total_files) * 100)  # Atualizar o progresso percentual
 
