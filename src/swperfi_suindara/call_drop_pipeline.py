@@ -115,7 +115,7 @@ class CallDropPipeline:
                     "Parsed Calls": 0,
                     "Predicted Calls": 0,
                     "Correct Predictions": 0,
-                    "Local Accuracy": 0
+                    "Local Accuracy": "0%"
                 }
                 self.summary.append(result)
                 return result
@@ -141,7 +141,7 @@ class CallDropPipeline:
                 "Parsed Calls": len(self._data_processor.consolidated_df),
                 "Predicted Calls": self._prediction_pipeline.total_predictions,
                 "Correct Predictions": self._prediction_pipeline.correct_predictions,
-                "Local Accuracy": self._prediction_pipeline.accuracy
+                "Local Accuracy": str(round(self._prediction_pipeline.accuracy)*100)+"%"
             }
 
             self.summary.append(result)
@@ -156,7 +156,7 @@ class CallDropPipeline:
                 "Parsed Calls": 0,
                 "Predicted Calls": 0,
                 "Correct Predictions": 0,
-                "Local Accuracy": 0
+                "Local Accuracy": "0%"
             }
             self.summary.append(result)
             return result

@@ -12,6 +12,7 @@ It loads a trained model, prepares data, and runs predictions on the consolidate
 
 import os
 import pickle
+import numpy as np
 import pandas as pd
 import logging
 import shap
@@ -69,32 +70,28 @@ class PredictionPipeline:
         try:
             with open(self.model_path, 'rb') as file:
                 model_data = pickle.load(file)
+                self.logger.debug(isinstance(model_data, dict))
 
-            # Carrega modelo e features
-            model = model_data.get("model")
-            required_features = model_data.get("feature_names")
+            # Verifica se o modelo é do tipo dicionário (caso XGBoost)
+            if isinstance(model_data, dict):
+                self.logger.info("[MODEL LOAD] Model file is a XGBoost.")
+                print("xgboost")
+                model = model_data.get("model")
+                required_features = model_data.get("feature_names")
+            else:
+                self.logger.info("[MODEL LOAD] Model file is a Catboost.")
+                print("catboost")
+                # Caso CatBoost, o modelo é carregado diretamente
+                model = model_data
+                # Para CatBoost, tentamos acessar 'feature_names_' se existir
+                required_features = getattr(model, 'feature_names_', [])
 
             if model is None or required_features is None:
                 self.logger.error("[MODEL LOAD] Model file is missing 'model' or 'feature_names'.")
                 return None, None
 
-            # Atribuição de atributos
-            self.model = model
-            self.required_features = required_features
-
-            # Extração de feature importance automaticamente
-            if hasattr(self.model, 'feature_importances_') and hasattr(self.model, 'feature_names_in_'):
-                self.feature_importance_dict = dict(
-                    zip(self.model.feature_names_in_, self.model.feature_importances_)
-                )
-                self.logger.info("[MODEL LOAD] Feature importances extracted successfully with %d features.", len(self.feature_importance_dict))
-            else:
-                self.feature_importance_dict = {}
-                self.logger.warning("[MODEL LOAD] Model does not have feature importances or feature names.")
-
             self.logger.info("[MODEL LOAD] Model and features loaded successfully from '%s'.", self.model_path)
             self.logger.info("[MODEL LOAD] Required features: %s", required_features)
-
             return model, required_features
 
         except Exception as e:
@@ -116,12 +113,12 @@ class PredictionPipeline:
 
         
     def filter_by_technology(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Filters rows by technology (LTE or NR)."""
+        """Filters rows by technology (LTE or NR) provided by signal parameters."""
         allowed_tech = ['LTE', 'NR']
         if 'Dominant_Technology' in data.columns:
             tech_col = 'Dominant_Technology'
-        elif 'activeRAT' in data.columns:
-            tech_col = 'activeRAT'
+        elif 'disconnectRAT' in data.columns:
+            tech_col = 'disconnectRAT'
         else:
             self.logger.info("[FILTERING] Neither 'Dominant_Technology' nor 'activeRAT' column found in the data.")
             raise ValueError("Missing technology column in data.")
@@ -136,10 +133,13 @@ class PredictionPipeline:
             self.logger.info("[FILTERING] All rows are LTE or NR based on '%s'.", tech_col)
         return filtered_data
     
+       
     def transform_data(self, data: pd.DataFrame) -> pd.DataFrame:
         """Transforms data by creating necessary columns."""
         data = data.copy()
-        # Create 'rsrp'
+        model_type = type(self.model).__name__
+
+        # Criação correta de 'rsrp'
         if 'rsrp' not in data.columns:
             if 'Dominant_Technology' in data.columns:
                 mask_lte = data['Dominant_Technology'] == 'LTE'
@@ -159,8 +159,8 @@ class PredictionPipeline:
                 if 'NR_rsrp' in data.columns:
                     data.loc[mask_nr, 'rsrp'] = data.loc[mask_nr, 'NR_rsrp']
                     self.logger.info("[TRANSFORMATION] Created 'rsrp' for NR events from 'NR_rsrp' (using rat).")
-        
-        # Create 'rsrq'
+
+        # Criação correta de 'rsrq'
         if 'rsrq' not in data.columns:
             if 'Dominant_Technology' in data.columns:
                 mask_lte = data['Dominant_Technology'] == 'LTE'
@@ -180,12 +180,46 @@ class PredictionPipeline:
                 if 'NR_rsrq' in data.columns:
                     data.loc[mask_nr, 'rsrq'] = data.loc[mask_nr, 'NR_rsrq']
                     self.logger.info("[TRANSFORMATION] Created 'rsrq' for NR events from 'NR_rsrq' (using rat).")
-        
-        # Create 'plmn'
+
+        # Criação correta de 'sinr_snr'
+        if 'sinr_snr' not in data.columns:
+            if 'Dominant_Technology' in data.columns:
+                mask_lte = data['Dominant_Technology'] == 'LTE'
+                if 'LTE_rssnr' in data.columns:
+                    data.loc[mask_lte, 'sinr_snr'] = data.loc[mask_lte, 'LTE_rssnr']
+                    self.logger.info("[TRANSFORMATION] Created numeric 'sinr_snr' for LTE events from 'LTE_rssnr'.")
+                mask_nr = data['Dominant_Technology'] == 'NR'
+                if 'NR_ssSinr' in data.columns:
+                    data.loc[mask_nr, 'sinr_snr'] = data.loc[mask_nr, 'NR_ssSinr']
+                    self.logger.info("[TRANSFORMATION] Created numeric 'sinr_snr' for NR events from 'NR_ssSinr'.")
+            else:
+                mask_lte = data['rat'] == 'LTE'
+                if 'LTE_rssnr' in data.columns:
+                    data.loc[mask_lte, 'sinr_snr'] = data.loc[mask_lte, 'LTE_rssnr']
+                    self.logger.info("[TRANSFORMATION] Created numeric 'sinr_snr' for LTE events from 'LTE_rssnr' (using rat).")
+                mask_nr = data['rat'] == 'NR'
+                if 'NR_ssSinr' in data.columns:
+                    data.loc[mask_nr, 'sinr_snr'] = data.loc[mask_nr, 'NR_ssSinr']
+                    self.logger.info("[TRANSFORMATION] Created numeric 'sinr_snr' for NR events from 'NR_ssSinr' (using rat).")
+
+        # disconnectRAT_mapped apenas para CatBoost
+        if model_type == 'CatBoostClassifier':
+            if 'disconnectRAT_mapped' not in data.columns and 'disconnectRAT' in data.columns:
+                rat_mapping = {
+                    13: 'LTE', 14: 'EHRPD', 15: 'HSPAP', 16: 'GSM',
+                    17: 'TD_SCDMA', 18: 'IWLAN', 19: 'LTE_CA', 20: 'NR'
+                }
+                data['disconnectRAT_mapped'] = data['disconnectRAT'].map(rat_mapping).astype('category')
+                self.logger.info("[TRANSFORMATION] 'disconnectRAT_mapped' created by mapping 'disconnectRAT'.")
+
+        # Criação de 'plmn'
         if 'plmn' not in data.columns and 'mcc' in data.columns and 'mnc' in data.columns:
-            data['plmn'] = data['mcc'].astype(str) + data['mnc'].astype(str)
-            self.logger.info("[TRANSFORMATION] Created 'plmn' column by combining 'mcc' and 'mnc'.")
+            data['plmn'] = (data['mcc'].astype(str) + data['mnc'].astype(str)).astype('category')
+            self.logger.info("[TRANSFORMATION] 'plmn' created by combining 'mcc' and 'mnc'.")
+
         return data
+
+
     
     def remove_invalid_rows(self, data: pd.DataFrame) -> pd.DataFrame:
         """Removes rows with missing or invalid (2147483647) values in signal columns."""
@@ -225,7 +259,8 @@ class PredictionPipeline:
             return False
         self.logger.info("[VALIDATION] All required features are present.")
         return True
-
+    
+    
     def prepare_data(self, df: pd.DataFrame):
         """
         Prepares data for prediction by selecting required features.
@@ -258,6 +293,7 @@ class PredictionPipeline:
 
         self.logger.info("[PREPARATION] Data is ready for prediction.")
         return df_prepared,df
+    
 
     def predict(self, df: pd.DataFrame):
         """
@@ -274,7 +310,7 @@ class PredictionPipeline:
             List of predicted probabilities for call drops.
         """
         try:
-            predictions = list(zip(*self.model.predict_proba(df)))[1]
+            predictions = self.model.predict_proba(df)[:, 1]
             self.logger.info("[PREDICTION] Prediction executed successfully.")
             self.logger.info("[PREDICTION] predictions: %s", predictions)
             return predictions
@@ -306,18 +342,21 @@ class PredictionPipeline:
             predictions = self.predict(df_prepared)
             if predictions is None:
                 self.logger.error("[MAIN] Prediction failed.")
-                return 
+                return
             else:
                 if self.log_zip_file_path == None:
                     self.log_zip_file_path = zip_file_path
-                    
-                # Save predictions to DataFrame
-                df_full['prediction'] = predictions
+
+                # Save prediction probabilities to DataFrame
+                df_full['call_drop_probability'] = predictions
+
+                # Create boolean column for call drop prediction based on threshold
+                df_full['predicted_call_drop'] = (df_full['call_drop_probability'] >= 0.85)
 
                 # Criar coluna de acertos (1 se correto, 0 se incorreto)
                 df_full['correct_prediction'] = (
-                    ((df_full['prediction'] >= 0.5) & (df_full['IDTAG'] == 'CALL_DROP')) |
-                    ((df_full['prediction'] < 0.5) & (df_full['IDTAG'] == 'CALL_SUCCESS'))
+                    (df_full['predicted_call_drop'] == True) & (df_full['IDTAG'] == 'CALL_DROP') |
+                    (df_full['predicted_call_drop'] == False) & (df_full['IDTAG'] == 'CALL_SUCCESS')
                 ).astype(int)
 
                 # Cálculo da acurácia
@@ -331,7 +370,7 @@ class PredictionPipeline:
                 self.logger.info("[PREDICTION] Accuracy: %.4f", self.accuracy)
 
                 # Criando DataFrame resumido
-                summary_data = []
+                summary_data =[]
 
                 # Log results
                 for idx, pred in zip(df_prepared.index, predictions):
@@ -341,7 +380,7 @@ class PredictionPipeline:
 
                     self.logger.info("[RESULT] call_id: %s - disc_time: %s - prediction: %.4f - IDTAG: %s",
                                     call_id, disc_time, pred, idtag)
-                    
+
                 for idx, pred in zip(df_prepared.index, predictions):
                     entry = {
                         'call_id': df_full.loc[idx, 'call_id'] if 'call_id' in df_full.columns else 'N/A',
@@ -351,7 +390,8 @@ class PredictionPipeline:
                     for feature in self.required_features:
                         entry[feature] = df_full.loc[idx, feature] if feature in df_full.columns else 'N/A'
                     entry.update({
-                        'prediction': pred,
+                        'call_drop_probability': pred,
+                        'predicted_call_drop': bool(df_full.loc[idx, 'predicted_call_drop']),
                         'IDTAG_reference': df_full.loc[idx, 'IDTAG'] if 'IDTAG' in df_full.columns else 'N/A',
                         'disconnect_cause': df_full.loc[idx, 'cause'] if 'cause' in df_full.columns else 'N/A',
                         'correct_prediction': bool(df_full.loc[idx, 'correct_prediction'])
@@ -359,8 +399,8 @@ class PredictionPipeline:
                     summary_data.append(entry)
 
                     # Logging de cada predição
-                    self.logger.info("[RESULT] call_id: %s - disc_time: %s - prediction: %.4f - IDTAG: %s",
-                                    entry['call_id'], entry['disc_time'], pred, entry['IDTAG_reference'])
+                    self.logger.info("[RESULT] call_id: %s - disc_time: %s - call_drop_probability: %.4f - predicted_call_drop: %s - IDTAG: %s",
+                                    entry['call_id'], entry['disc_time'], pred, entry['predicted_call_drop'], entry['IDTAG_reference'])
 
                 # Atributos de predição
                 self.full_predicted_df = df_full
@@ -368,8 +408,10 @@ class PredictionPipeline:
 
                 self.logger.info("[MAIN] Prediction pipeline completed successfully.")
 
-                return self.full_predicted_df        
+                return self.full_predicted_df
         except Exception as e: self.logger.exception("MAIN", "Unexpected error: %s", e)
+
+
 
 
 
