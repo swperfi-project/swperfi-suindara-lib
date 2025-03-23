@@ -126,7 +126,7 @@ class CallDropPipeline:
                 self.logger.info(f"Consolidated DF saved for {zip_name}")
 
             # Step 2: Run prediction pipeline
-            #self._prediction_pipeline = PredictionPipeline(self.model_path)
+            self._prediction_pipeline = PredictionPipeline(self.model_path)
             self._prediction_pipeline.run_pipeline(self._data_processor.consolidated_df, zip_path)
           
             # Save prediction results (using custom save method)
