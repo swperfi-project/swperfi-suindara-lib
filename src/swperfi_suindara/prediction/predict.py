@@ -222,7 +222,7 @@ class PredictionPipeline:
             if 'plmn' not in data.columns:
                 data['plmn'] = (
                     data['mcc'].astype(int).astype(str) +
-                    data['mnc'].astype(str)
+                    data['mnc'].astype(int).astype(str)
                 ).astype('category')
                 self.logger.info("[TRANSFORMATION] 'plmn' created by combining 'mcc' and 'mnc'.")
 
