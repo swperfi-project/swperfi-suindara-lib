@@ -75,12 +75,10 @@ class PredictionPipeline:
             # Verifica se o modelo é do tipo dicionário (caso XGBoost)
             if isinstance(model_data, dict):
                 self.logger.info("[MODEL LOAD] Model file is a XGBoost.")
-                print("xgboost")
                 model = model_data.get("model")
                 required_features = model_data.get("feature_names")
             else:
                 self.logger.info("[MODEL LOAD] Model file is a Catboost.")
-                print("catboost")
                 # Caso CatBoost, o modelo é carregado diretamente
                 model = model_data
                 # Para CatBoost, tentamos acessar 'feature_names_' se existir
@@ -212,10 +210,22 @@ class PredictionPipeline:
                 data['disconnectRAT_mapped'] = data['disconnectRAT'].map(rat_mapping).astype('category')
                 self.logger.info("[TRANSFORMATION] 'disconnectRAT_mapped' created by mapping 'disconnectRAT'.")
 
-        # Criação de 'plmn'
-        if 'plmn' not in data.columns and 'mcc' in data.columns and 'mnc' in data.columns:
-            data['plmn'] = (data['mcc'].astype(str) + data['mnc'].astype(str)).astype('category')
-            self.logger.info("[TRANSFORMATION] 'plmn' created by combining 'mcc' and 'mnc'.")
+       # Remover linhas inválidas antes de criar 'plmn'
+        if 'mcc' in data.columns and 'mnc' in data.columns:
+            before_drop = len(data)
+            data = data.dropna(subset=['mcc', 'mnc'])
+            after_drop = len(data)
+            if before_drop != after_drop:
+                self.logger.info(f"[TRANSFORMATION] Dropped {before_drop - after_drop} rows due to NaN in 'mcc' or 'mnc'.")
+
+            # Criação de 'plmn'
+            if 'plmn' not in data.columns:
+                data['plmn'] = (
+                    data['mcc'].astype(int).astype(str) +
+                    data['mnc'].astype(str)
+                ).astype('category')
+                self.logger.info("[TRANSFORMATION] 'plmn' created by combining 'mcc' and 'mnc'.")
+
 
         return data
 
