@@ -137,6 +137,21 @@ class PredictionPipeline:
         data = data.copy()
         model_type = type(self.model).__name__
 
+        time_columns = ['persist_time', 'voice_reg_time', 'signal_strength_time']
+        before_drop = len(data)
+        data = data.dropna(subset=time_columns, how='any')
+        after_drop = len(data)
+
+        if before_drop != after_drop:
+            self.logger.info(f"[CLEANING] Dropped {before_drop - after_drop} rows due to missing time values.")
+            data = data.astype({
+                col: 'int64' for col in ['ci', 'tac', 'channel','signal_strength_at_end','mcc','mnc'] if col in data.columns
+            })
+            self.logger.info(f"[TRANSFORMATION] Column ['ci', 'tac', 'channel'] converted to int64.")
+
+        else:
+            self.logger.info("[CLEANING] No rows with missing time values found.")
+
         # Criação correta de 'rsrp'
         if 'rsrp' not in data.columns:
             if 'Dominant_Technology' in data.columns:
@@ -210,21 +225,15 @@ class PredictionPipeline:
                 data['disconnectRAT_mapped'] = data['disconnectRAT'].map(rat_mapping).astype('category')
                 self.logger.info("[TRANSFORMATION] 'disconnectRAT_mapped' created by mapping 'disconnectRAT'.")
 
-       # Remover linhas inválidas antes de criar 'plmn'
-        if 'mcc' in data.columns and 'mnc' in data.columns:
-            before_drop = len(data)
-            data = data.dropna(subset=['mcc', 'mnc'])
-            after_drop = len(data)
-            if before_drop != after_drop:
-                self.logger.info(f"[TRANSFORMATION] Dropped {before_drop - after_drop} rows due to NaN in 'mcc' or 'mnc'.")
-
-            # Criação de 'plmn'
-            if 'plmn' not in data.columns:
-                data['plmn'] = (
-                    data['mcc'].astype(int).astype(str) +
-                    data['mnc'].astype(int).astype(str)
-                ).astype('category')
-                self.logger.info("[TRANSFORMATION] 'plmn' created by combining 'mcc' and 'mnc'.")
+               
+        # Criação de 'plmn'
+        if 'plmn' not in data.columns and 'mcc' in data.columns and 'mnc' in data.columns:
+            data['plmn'] = (
+                data['mcc'].astype(str) +
+                data['mnc'].astype(str)
+            ).astype('category')
+            self.logger.info("[TRANSFORMATION] 'plmn' created by combining 'mcc' and 'mnc'.")
+    
 
 
         return data
@@ -251,24 +260,64 @@ class PredictionPipeline:
 
     def validate_features(self, df: pd.DataFrame) -> bool:
         """
-        Validates if the required features are present in the DataFrame.
+        Validates and adjusts the data types of the required features in the DataFrame.
 
         Parameters:
         -----------
         df : pd.DataFrame
-            The DataFrame to validate.
+            The DataFrame to validate and adjust.
 
         Returns:
         --------
         bool
-            True if all required features are present, False otherwise.
+            True if all required features are present and adjusted, False otherwise.
         """
+        model_type = type(self.model).__name__
         missing_features = set(self.required_features) - set(df.columns)
+
         if missing_features:
             self.logger.error("[VALIDATION] Missing required features: %s", missing_features)
             return False
-        self.logger.info("[VALIDATION] All required features are present.")
-        return True
+
+        if model_type == 'CatBoostClassifier':
+            expected_types = {
+                'ci': 'category',
+                'tac': 'category',
+                'channel': 'category',
+                'plmn': 'category',
+                'band': 'category',
+                'rsrp': 'float64',
+                'rsrq': 'float64',
+                'sinr_snr': 'float64',
+                'disconnectRAT_mapped': 'category',
+                'signal_strength_at_end': 'int32',
+                'hour_of_day': 'category',
+                'day_of_week': 'category'
+            }
+        elif model_type == 'XGBClassifier':
+            expected_types = {
+                'day_of_week': 'int32',
+                'hour_of_day': 'int32',
+                'plmn': 'category',
+                'activeRAT': 'int64',
+                'disconnectRAT': 'int64',
+                'channel': 'category',
+                'band': 'category',
+                'rsrp': 'float64',
+                'rsrq': 'float64'
+            }
+        else:
+            self.logger.warning(f"[VALIDATION] Model type {model_type} not recognized for type adjustment.")
+            return True # if model not recognized, only check for feature presence.
+
+        try:
+            df = df.astype(expected_types)
+            self.logger.info("[VALIDATION] All required features have been adjusted to correct data types.")
+            return True
+        except Exception as e:
+            self.logger.error(f"[VALIDATION] Error adjusting data types: {e}")
+            return False
+
     
     
     def prepare_data(self, df: pd.DataFrame):
