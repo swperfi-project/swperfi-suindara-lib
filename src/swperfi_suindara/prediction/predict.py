@@ -129,6 +129,13 @@ class PredictionPipeline:
             self.logger.info("[FILTERING] Dropped %d rows that are not LTE or NR based on '%s'.", dropped_count, tech_col)
         else:
             self.logger.info("[FILTERING] All rows are LTE or NR based on '%s'.", tech_col)
+            
+        time_columns = ['persist_time', 'voice_reg_time', 'signal_strength_time']
+        filtered_data = filtered_data.dropna(subset=time_columns, how='any')
+        filtered_data = filtered_data.astype({
+            col: 'int64' for col in ['ci', 'tac', 'channel','band','signal_strength_at_end','mcc','mnc'] if col in data.columns
+        })
+            
         return filtered_data
     
        
@@ -136,21 +143,6 @@ class PredictionPipeline:
         """Transforms data by creating necessary columns."""
         data = data.copy()
         model_type = type(self.model).__name__
-
-        time_columns = ['persist_time', 'voice_reg_time', 'signal_strength_time']
-        before_drop = len(data)
-        data = data.dropna(subset=time_columns, how='any')
-        after_drop = len(data)
-
-        if before_drop != after_drop:
-            self.logger.info(f"[CLEANING] Dropped {before_drop - after_drop} rows due to missing time values.")
-            data = data.astype({
-                col: 'int64' for col in ['ci', 'tac', 'channel','signal_strength_at_end','mcc','mnc'] if col in data.columns
-            })
-            self.logger.info(f"[TRANSFORMATION] Column ['ci', 'tac', 'channel'] converted to int64.")
-
-        else:
-            self.logger.info("[CLEANING] No rows with missing time values found.")
 
         # Criação correta de 'rsrp'
         if 'rsrp' not in data.columns:
