@@ -52,7 +52,7 @@ class PredictionPipeline:
         self.model_path = model_path
         self.log_zip_file_path = None
         self.model, self.required_features = self.load_model()
-        self.threshold = 0.5
+        self.threshold = 0.656
         self.total_predictions = None 
         self.correct_predictions = None
         self.accuracy  = None
