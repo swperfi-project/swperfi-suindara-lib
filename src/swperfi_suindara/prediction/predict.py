@@ -52,6 +52,7 @@ class PredictionPipeline:
         self.model_path = model_path
         self.log_zip_file_path = None
         self.model, self.required_features = self.load_model()
+        self.threshold = 0.5
         self.total_predictions = None 
         self.correct_predictions = None
         self.accuracy  = None
@@ -402,7 +403,7 @@ class PredictionPipeline:
                 df_full['call_drop_probability'] = predictions
 
                 # Create boolean column for call drop prediction based on threshold
-                df_full['predicted_call_drop'] = (df_full['call_drop_probability'] >= 0.85)
+                df_full['predicted_call_drop'] = (df_full['call_drop_probability'] >= self.threshold)
 
                 # Criar coluna de acertos (1 se correto, 0 se incorreto)
                 df_full['correct_prediction'] = (
