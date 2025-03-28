@@ -141,7 +141,7 @@ class CallDropPipeline:
                 "Parsed Calls": len(self._data_processor.consolidated_df),
                 "Predicted Calls": self._prediction_pipeline.total_predictions,
                 "Correct Predictions": self._prediction_pipeline.correct_predictions,
-                "Local Accuracy": str(round(self._prediction_pipeline.accuracy)*100)+"%"
+                "Local Accuracy": str(round(self._prediction_pipeline.accuracy,2)*100)+"%"
             }
 
             self.summary.append(result)

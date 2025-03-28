@@ -52,7 +52,7 @@ class PredictionPipeline:
         self.model_path = model_path
         self.log_zip_file_path = None
         self.model, self.required_features = self.load_model()
-        self.threshold = 0.656
+        self.threshold = 0.5
         self.total_predictions = None 
         self.correct_predictions = None
         self.accuracy  = None
@@ -328,6 +328,7 @@ class PredictionPipeline:
             The cleaned and prepared DataFrame for prediction.
         """
         self.logger.info("[PREPARATION] Starting data preparation for prediction.")
+        df = df.query("IDTAG != 'ORIGINATION_FAILURE'")
         df = self.filter_by_technology(df)
         df = self.transform_data(df)
         df = self.remove_invalid_rows(df)
@@ -562,7 +563,7 @@ class PredictionPipeline:
         # Definir tamanho do gráfico com base no número de features
         num_features = len(input_instance.columns)
         fig_width = 10
-        fig_height = max(6, num_features * 0.5)  # Altura proporcional ao número de features
+        fig_height = max(5, num_features * 0.5)  # Altura proporcional ao número de features
 
         # Configuração inicial do tema escuro
         plt.style.use('dark_background')
